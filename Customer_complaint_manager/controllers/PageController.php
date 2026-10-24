@@ -1,5 +1,11 @@
 <?php
 
+require_once __DIR__ . '/../models/CustomerDB.php';
+require_once __DIR__ . '/../models/EmployeeDB.php';
+require_once __DIR__ . '/../models/ProductDB.php';
+require_once __DIR__ . '/../models/ComplaintCategoryDB.php';
+require_once __DIR__ . '/../models/ComplaintDB.php';
+
 class PageController
 {
     public function handleRequest()
@@ -7,6 +13,7 @@ class PageController
         $pages = [
             'login' => 'Customer Complaint Manager',
             'register' => 'Create Customer Account',
+            'reset-password' => 'Reset Password',
 
             'customer-dashboard' => 'Customer Dashboard',
             'profile' => 'My Profile',
@@ -27,11 +34,9 @@ class PageController
             'open-complaints' => 'Open Complaints',
             'unassigned' => 'Unassigned Complaints',
             'workload' => 'Technician Workload',
-            'assign' => 'Assign Complaint',
-            'reset-password' => 'Reset Password'
+            'assign' => 'Assign Complaint'
         ];
 
-        // The default page is now the login screen.
         $page = $_GET['page'] ?? 'login';
 
         if (!is_string($page) || !isset($pages[$page])) {
@@ -40,7 +45,62 @@ class PageController
 
         $title = $pages[$page];
 
-        // Sample customer data.
+        $editingEmployee = $page === 'employee-form'
+            && ($_GET['mode'] ?? '') === 'edit';
+
+        $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+
+        $errors = [];
+        $productOptions = [];
+        $categoryOptions = [];
+        $complaintChoicesAvailable = true;
+
+        if ($page === 'new-complaint') {
+            try {
+                $productDB = new ProductDB();
+                $categoryDB = new ComplaintCategoryDB();
+
+                foreach ($productDB->getAll() as $product) {
+                    $productOptions[$product->getProductId()] =
+                        $product->getProductName();
+                }
+
+                foreach ($categoryDB->getAll() as $category) {
+                    $categoryOptions[$category->getCategoryId()] =
+                        $category->getCategoryName();
+                }
+
+                if (!$productOptions || !$categoryOptions) {
+                    $complaintChoicesAvailable = false;
+                    $errors[] =
+                        'Products and complaint categories must be added '
+                        . 'to the database before entering a complaint.';
+                }
+            } catch (PDOException $exception) {
+                error_log($exception->getMessage());
+
+                $complaintChoicesAvailable = false;
+                $errors[] =
+                    'Products and complaint categories could not be loaded. '
+                    . 'Check the database connection and PHP error log.';
+            }
+        }
+
+        if ($isPost) {
+            $errors = array_merge(
+                $errors,
+                validateForm(
+                    $page,
+                    $_POST,
+                    $editingEmployee,
+                    $productOptions,
+                    $categoryOptions
+                )
+            );
+        }
+
+        // Temporary sample customer for My Profile and the dashboard.
+        // Administrator customer management uses MySQL below.
         $customer = [
             'first_name' => 'Alex',
             'last_name' => 'Morgan',
@@ -52,40 +112,7 @@ class PageController
             'phone' => '757-555-0100'
         ];
 
-        // Sample employee data.
-        $employees = [
-            'treed' => [
-                'user_id' => 'treed',
-                'first_name' => 'Taylor',
-                'last_name' => 'Reed',
-                'email' => 'taylor@example.com',
-                'phone_extension' => '101',
-                'employee_level' => 'Technician'
-            ],
-            'admin1' => [
-                'user_id' => 'admin1',
-                'first_name' => 'Casey',
-                'last_name' => 'Brown',
-                'email' => 'casey@example.com',
-                'phone_extension' => '100',
-                'employee_level' => 'Administrator'
-            ]
-        ];
-
-        $editingEmployee = $page === 'employee-form'
-            && ($_GET['mode'] ?? '') === 'edit';
-
-        $requestedEmployee = $_GET['employee'] ?? 'treed';
-
-        if (
-            !is_string($requestedEmployee) ||
-            !isset($employees[$requestedEmployee])
-        ) {
-            $requestedEmployee = 'treed';
-        }
-
-        $employee = $employees[$requestedEmployee];
-
+        // Complaint screens remain sample-based for now.
         $complaints = [
             [
                 'id' => '1001',
@@ -125,6 +152,7 @@ class PageController
         $assignedComplaints = [$complaints[0]];
         $unassignedComplaints = [$complaints[1]];
 
+        // Temporary choices until complaint integration is completed.
         $technicians = [
             '1' => 'Taylor Reed',
             '2' => 'Jordan Smith'
@@ -142,7 +170,6 @@ class PageController
                 '#' . $complaint['id'] . ' — ' . $complaint['product'];
         }
 
-        // Navigation for each role.
         $customerLinks = [
             'customer-dashboard' => 'Customer Dashboard',
             'profile' => 'My Profile',
@@ -203,15 +230,11 @@ class PageController
 
         $defaults = [];
 
-        if (in_array($page, ['profile', 'customer-edit'], true)) {
+        if ($page === 'profile') {
             $defaults = $customer;
         }
 
-        if ($editingEmployee) {
-            $defaults = $employee;
-        }
-
-        if ($page === 'login') {
+        if (in_array($page, ['login', 'reset-password'], true)) {
             $defaults['account_type'] = 'Customer';
         }
 
@@ -227,35 +250,6 @@ class PageController
             $defaults['complaint_id'] = $selectedComplaint['id'];
         }
 
-        $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
-        $errors = [];
-
-        if ($isPost) {
-            // The existing validator uses treed as its sample edit ID.
-            // Normalize a COPY for that check, then verify the actual
-            // selected employee ID separately.
-            $validationData = $_POST;
-
-            if ($editingEmployee) {
-                $submittedId = $_POST['user_id'] ?? '';
-
-                if (
-                    !is_string($submittedId) ||
-                    $submittedId !== $employee['user_id']
-                ) {
-                    $errors[] =
-                        'An existing employee User ID cannot be changed.';
-                }
-
-                $validationData['user_id'] = 'treed';
-            }
-
-            $errors = array_merge(
-                $errors,
-                validateForm($page, $validationData, $editingEmployee)
-            );
-        }
-
         $values = $defaults;
 
         if ($isPost) {
@@ -268,9 +262,775 @@ class PageController
             }
         }
 
-        // Always display the original ID when editing an employee.
-        if ($editingEmployee) {
-            $values['user_id'] = $employee['user_id'];
+        // Variables supplied to the customer views.
+        $customers = [];
+        $customerRecord = null;
+        $customerPageUnavailable = false;
+
+        // Customer database operations.
+        if (in_array($page, [
+            'register',
+            'customers',
+            'customer-edit'
+        ], true)) {
+            try {
+                $customerDB = new CustomerDB();
+
+                if ($page === 'customers') {
+                    $customers = $customerDB->getAll();
+                }
+
+                if ($page === 'customer-edit') {
+                    $requestedCustomerId = $_GET['id'] ?? null;
+
+                    $customerId = is_string($requestedCustomerId)
+                        ? filter_var(
+                            $requestedCustomerId,
+                            FILTER_VALIDATE_INT,
+                            ['options' => ['min_range' => 1]]
+                        )
+                        : false;
+
+                    if ($customerId === false) {
+                        $customerPageUnavailable = true;
+                        $errors[] =
+                            'Select a customer from the customer list.';
+                    } else {
+                        $customerRecord =
+                            $customerDB->getById($customerId);
+
+                        if ($customerRecord === null) {
+                            $customerPageUnavailable = true;
+                            $errors[] =
+                                'The selected customer was not found.';
+                        } elseif (!$isPost) {
+                            $values = $customerRecord->toFormArray();
+                        }
+                    }
+                }
+
+                if (
+                    $isPost &&
+                    !$errors &&
+                    !$customerPageUnavailable &&
+                    in_array($page, [
+                        'register',
+                        'customer-edit'
+                    ], true)
+                ) {
+
+                    $record = $page === 'register'
+                        ? new Customer()
+                        : $customerRecord;
+
+                    $record->setFirstName($values['first_name']);
+                    $record->setLastName($values['last_name']);
+                    $record->setEmail($values['email']);
+                    $record->setStreetAddress($values['street_address']);
+                    $record->setCity($values['city']);
+                    $record->setState($values['state']);
+                    $record->setZipCode($values['zip_code']);
+                    $record->setPhone($values['phone']);
+
+                    if ($customerDB->emailExists(
+                        $record->getEmail(),
+                        $record->getCustomerId()
+                    )) {
+                        $errors[] =
+                            'That email address is already registered.';
+                    } elseif ($page === 'register') {
+                        $record->setPasswordHash(
+                            password_hash(
+                                $values['new_password'],
+                                PASSWORD_DEFAULT
+                            )
+                        );
+
+                        $customerDB->insert($record);
+
+                        header('Location: ?page=login&registered=1');
+                        exit;
+                    } else {
+                        $customerDB->update($record);
+
+                        header('Location: ?page=customers&updated=1');
+                        exit;
+                    }
+                }
+            } catch (PDOException $exception) {
+                error_log($exception->getMessage());
+
+                if (
+                    $exception->getCode() === '23000' &&
+                    (int) ($exception->errorInfo[1] ?? 0) === 1062
+                ) {
+                    $errors[] =
+                        'That email address is already registered.';
+                } else {
+                    $customerPageUnavailable = true;
+                    $errors[] =
+                        'Customer information could not be loaded or saved. '
+                        . 'Check the database connection and PHP error log.';
+                }
+            }
+        }
+
+        // Variables supplied to the employee views.
+        $employees = [];
+        $employeeRecord = null;
+        $employeePageUnavailable = false;
+
+        // Employee database operations.
+        if (in_array($page, [
+            'employees',
+            'employee-form'
+        ], true)) {
+            try {
+                $employeeDB = new EmployeeDB();
+
+                if ($page === 'employees') {
+                    $employees = $employeeDB->getAll();
+                }
+
+                if ($page === 'employee-form') {
+                    if ($editingEmployee) {
+                        $requestedUserId = $_GET['employee'] ?? '';
+
+                        if (
+                            !is_string($requestedUserId) ||
+                            trim($requestedUserId) === ''
+                        ) {
+                            $employeePageUnavailable = true;
+                            $errors[] =
+                                'Select an employee from the employee list.';
+                        } else {
+                            $employeeRecord =
+                                $employeeDB->getByUserId($requestedUserId);
+
+                            if ($employeeRecord === null) {
+                                $employeePageUnavailable = true;
+                                $errors[] =
+                                    'The selected employee was not found.';
+                            } else {
+                                if (!$isPost) {
+                                    $values =
+                                        $employeeRecord->toFormArray();
+                                }
+
+                                if (
+                                    $isPost &&
+                                    ($_POST['user_id'] ?? '') !==
+                                    $employeeRecord->getUserId()
+                                ) {
+                                    $errors[] =
+                                        'An existing employee User ID '
+                                        . 'cannot be changed.';
+                                }
+
+                                $values['user_id'] =
+                                    $employeeRecord->getUserId();
+                            }
+                        }
+                    }
+
+                    if (
+                        $isPost &&
+                        !$errors &&
+                        !$employeePageUnavailable
+                    ) {
+
+                        $record = $editingEmployee
+                            ? $employeeRecord
+                            : new Employee();
+
+                        if (!$editingEmployee) {
+                            $record->setUserId($values['user_id']);
+                        }
+
+                        $record->setFirstName($values['first_name']);
+                        $record->setLastName($values['last_name']);
+                        $record->setEmail($values['email']);
+
+                        $record->setPhoneExtension(
+                            $values['phone_extension'] ?? ''
+                        );
+
+                        $record->setEmployeeLevel(
+                            $values['employee_level']
+                        );
+
+                        if (
+                            !$editingEmployee &&
+                            $employeeDB->userIdExists(
+                                $record->getUserId()
+                            )
+                        ) {
+                            $errors[] =
+                                'That employee User ID already exists.';
+                        }
+
+                        if ($employeeDB->emailExists(
+                            $record->getEmail(),
+                            $record->getEmployeeId()
+                        )) {
+                            $errors[] =
+                                'That employee email address already exists.';
+                        }
+
+                        if (!$errors) {
+                            if ($editingEmployee) {
+                                $employeeDB->update($record);
+                            } else {
+                                $record->setPasswordHash(
+                                    password_hash(
+                                        $values['new_password'],
+                                        PASSWORD_DEFAULT
+                                    )
+                                );
+
+                                $employeeDB->insert($record);
+                            }
+
+                            header('Location: ?page=employees&saved=1');
+                            exit;
+                        }
+                    }
+                }
+            } catch (PDOException $exception) {
+                error_log($exception->getMessage());
+
+                if (
+                    $exception->getCode() === '23000' &&
+                    (int) ($exception->errorInfo[1] ?? 0) === 1062
+                ) {
+                    $errors[] =
+                        'The employee User ID or email address already exists.';
+                } else {
+                    $employeePageUnavailable = true;
+                    $errors[] =
+                        'Employee information could not be loaded or saved. '
+                        . 'Check the database connection and PHP error log.';
+                }
+            }
+        }
+
+        // Complaint submission and customer complaint viewing.
+        $complaintPageUnavailable = false;
+        $customerOptions = [];
+        $selectedCustomerId = '';
+
+        if (in_array($page, [
+            'new-complaint',
+            'my-complaints',
+            'complaint-details'
+        ], true)) {
+            // Prevent sample records appearing on database-connected pages.
+            $customerComplaints = [];
+            $selectedComplaint = null;
+
+            try {
+                $customerDB = new CustomerDB();
+                $complaintDB = new ComplaintDB();
+
+                foreach ($customerDB->getAll() as $customerObject) {
+                    $customerOptions[$customerObject->getCustomerId()] =
+                        $customerObject->getFullName()
+                        . ' — ' . $customerObject->getEmail();
+                }
+
+                if ($page === 'new-complaint') {
+                    if (!$customerOptions) {
+                        $complaintPageUnavailable = true;
+                        $errors[] =
+                            'Create a customer account before submitting a complaint.';
+                    }
+
+                    if ($isPost) {
+                        $submittedCustomerId = $_POST['customer_id'] ?? '';
+
+                        $selectedCustomerId = is_string($submittedCustomerId)
+                            ? $submittedCustomerId
+                            : '';
+
+                        $allowedCustomerIds = array_map(
+                            'strval',
+                            array_keys($customerOptions)
+                        );
+
+                        if (!in_array(
+                            $selectedCustomerId,
+                            $allowedCustomerIds,
+                            true
+                        )) {
+                            $errors[] = 'Select a valid test customer.';
+                        }
+
+                        if (
+                            !$errors &&
+                            !$complaintPageUnavailable &&
+                            $complaintChoicesAvailable
+                        ) {
+
+                            $complaint = new Complaint();
+
+                            $complaint->setCustomerId($selectedCustomerId);
+                            $complaint->setProductId($values['product_id']);
+                            $complaint->setCategoryId($values['category_id']);
+                            $complaint->setDescription($values['description']);
+
+                            $complaintDB->insert($complaint);
+
+                            header(
+                                'Location: ?page=my-complaints&customer_id='
+                                    . rawurlencode($selectedCustomerId)
+                                    . '&saved=1'
+                            );
+                            exit;
+                        }
+                    }
+                }
+
+                if ($page === 'my-complaints') {
+                    $requestedCustomerId = $_GET['customer_id'] ?? '';
+
+                    $selectedCustomerId = is_string($requestedCustomerId)
+                        ? $requestedCustomerId
+                        : '';
+
+                    if ($selectedCustomerId !== '') {
+                        $allowedCustomerIds = array_map(
+                            'strval',
+                            array_keys($customerOptions)
+                        );
+
+                        if (!in_array(
+                            $selectedCustomerId,
+                            $allowedCustomerIds,
+                            true
+                        )) {
+                            $errors[] = 'Select a valid test customer.';
+                            $selectedCustomerId = '';
+                        } else {
+                            $customerComplaints =
+                                $complaintDB->getByCustomerId($selectedCustomerId);
+                        }
+                    } elseif (
+                        isset($_GET['customer_id']) &&
+                        !is_string($_GET['customer_id'])
+                    ) {
+                        $errors[] = 'Select a valid test customer.';
+                    }
+                }
+
+                if ($page === 'complaint-details') {
+                    $requestedComplaintId = $_GET['id'] ?? null;
+
+                    $complaintId = is_string($requestedComplaintId)
+                        ? filter_var(
+                            $requestedComplaintId,
+                            FILTER_VALIDATE_INT,
+                            ['options' => ['min_range' => 1]]
+                        )
+                        : false;
+
+                    if ($complaintId === false) {
+                        $complaintPageUnavailable = true;
+                        $errors[] = 'Select a complaint from the complaint list.';
+                    } else {
+                        $selectedComplaint = $complaintDB->getById($complaintId);
+
+                        if ($selectedComplaint === null) {
+                            $complaintPageUnavailable = true;
+                            $errors[] = 'The selected complaint was not found.';
+                        }
+                    }
+                }
+            } catch (PDOException $exception) {
+                error_log($exception->getMessage());
+
+                $complaintPageUnavailable = true;
+                $errors[] =
+                    'Complaint information could not be loaded or saved. '
+                    . 'Check the database connection and PHP error log.';
+            }
+        }
+
+        // Administrator complaint management.
+        $adminComplaintPageUnavailable = false;
+
+        if (in_array($page, [
+            'open-complaints',
+            'unassigned',
+            'assign',
+            'workload'
+        ], true)) {
+            // Remove sample data from these database-connected pages.
+            $complaints = [];
+            $unassignedComplaints = [];
+            $complaintOptions = [];
+            $technicians = [];
+            $workloads = [];
+
+            try {
+                $complaintDB = new ComplaintDB();
+
+                if ($page === 'open-complaints') {
+                    $complaints = $complaintDB->getOpen();
+                }
+
+                if ($page === 'unassigned') {
+                    $unassignedComplaints = $complaintDB->getUnassigned();
+                }
+
+                if ($page === 'workload') {
+                    $workloads = $complaintDB->getTechnicianWorkload();
+                }
+
+                if ($page === 'assign') {
+                    foreach ($complaintDB->getOpen() as $complaintRow) {
+                        $complaintOptions[$complaintRow['id']] =
+                            '#' . $complaintRow['id']
+                            . ' — ' . $complaintRow['customer']
+                            . ' — ' . $complaintRow['product']
+                            . ' — Assigned: ' . $complaintRow['technician'];
+                    }
+
+                    foreach ($complaintDB->getTechnicians() as $technicianRow) {
+                        $technicians[$technicianRow['employee_id']] =
+                            $technicianRow['name']
+                            . ' (' . $technicianRow['user_id'] . ')';
+                    }
+
+                    // Preselect the complaint when arriving from an Assign link.
+                    if (!$isPost) {
+                        $values['complaint_id'] = '';
+
+                        $requestedComplaintId = $_GET['id'] ?? '';
+
+                        if (
+                            is_string($requestedComplaintId) &&
+                            $requestedComplaintId !== ''
+                        ) {
+                            $allowedComplaintIds = array_map(
+                                'strval',
+                                array_keys($complaintOptions)
+                            );
+
+                            if (in_array(
+                                $requestedComplaintId,
+                                $allowedComplaintIds,
+                                true
+                            )) {
+                                $values['complaint_id'] = $requestedComplaintId;
+                            } else {
+                                $errors[] =
+                                    'That complaint is not available for assignment.';
+                            }
+                        } elseif (
+                            isset($_GET['id']) &&
+                            !is_string($_GET['id'])
+                        ) {
+                            $errors[] = 'Select a valid complaint.';
+                        }
+                    }
+
+                    if ($isPost && !$errors) {
+                        $submittedComplaintId = $values['complaint_id'] ?? '';
+                        $submittedTechnicianId = $values['technician_id'] ?? '';
+
+                        $allowedComplaintIds = array_map(
+                            'strval',
+                            array_keys($complaintOptions)
+                        );
+
+                        $allowedTechnicianIds = array_map(
+                            'strval',
+                            array_keys($technicians)
+                        );
+
+                        if (!in_array(
+                            $submittedComplaintId,
+                            $allowedComplaintIds,
+                            true
+                        )) {
+                            $errors[] = 'Select an existing open complaint.';
+                        }
+
+                        if (!in_array(
+                            $submittedTechnicianId,
+                            $allowedTechnicianIds,
+                            true
+                        )) {
+                            $errors[] = 'Select an existing technician.';
+                        }
+
+                        if (!$errors) {
+                            $complaintDB->assignTechnician(
+                                $submittedComplaintId,
+                                $submittedTechnicianId
+                            );
+
+                            header('Location: ?page=open-complaints&assigned=1');
+                            exit;
+                        }
+                    }
+                }
+            } catch (InvalidArgumentException $exception) {
+                $errors[] = $exception->getMessage();
+            } catch (PDOException $exception) {
+                error_log($exception->getMessage());
+
+                $adminComplaintPageUnavailable = true;
+                $errors[] =
+                    'Complaint information could not be loaded or saved. '
+                    . 'Check the database connection and PHP error log.';
+            }
+        }
+
+        // Technician complaint viewing and updates.
+        $technicianComplaintPageUnavailable = false;
+        $technicianOptions = [];
+        $selectedTechnicianId = '';
+
+        if (in_array($page, [
+            'technician',
+            'update-complaint'
+        ], true)) {
+            // Replace sample data on these pages.
+            $assignedComplaints = [];
+            $selectedComplaint = null;
+
+            try {
+                $complaintDB = new ComplaintDB();
+
+                foreach ($complaintDB->getTechnicians() as $technicianRow) {
+                    $technicianOptions[$technicianRow['employee_id']] =
+                        $technicianRow['name']
+                        . ' (' . $technicianRow['user_id'] . ')';
+                }
+
+                // Temporary technician selection until login is implemented.
+                $requestedTechnicianId = $_GET['technician_id'] ?? '';
+
+                if (is_string($requestedTechnicianId)) {
+                    $selectedTechnicianId = $requestedTechnicianId;
+                }
+
+                $allowedTechnicianIds = array_map(
+                    'strval',
+                    array_keys($technicianOptions)
+                );
+
+                if (
+                    $selectedTechnicianId !== '' &&
+                    !in_array(
+                        $selectedTechnicianId,
+                        $allowedTechnicianIds,
+                        true
+                    )
+                ) {
+                    $errors[] = 'Select a valid test technician.';
+                    $selectedTechnicianId = '';
+                } elseif (
+                    isset($_GET['technician_id']) &&
+                    !is_string($_GET['technician_id'])
+                ) {
+                    $errors[] = 'Select a valid test technician.';
+                }
+
+                if (
+                    $page === 'technician' &&
+                    $selectedTechnicianId !== ''
+                ) {
+                    $assignedComplaints =
+                        $complaintDB->getByTechnicianId($selectedTechnicianId);
+                }
+
+                if ($page === 'update-complaint') {
+                    $requestedComplaintId = $_GET['id'] ?? null;
+
+                    $complaintId = is_string($requestedComplaintId)
+                        ? filter_var(
+                            $requestedComplaintId,
+                            FILTER_VALIDATE_INT,
+                            ['options' => ['min_range' => 1]]
+                        )
+                        : false;
+
+                    if ($selectedTechnicianId === '') {
+                        $technicianComplaintPageUnavailable = true;
+                        $errors[] =
+                            'Select a technician from Assigned Complaints first.';
+                    } elseif ($complaintId === false) {
+                        $technicianComplaintPageUnavailable = true;
+                        $errors[] = 'Select a valid complaint.';
+                    } else {
+                        $selectedComplaint =
+                            $complaintDB->getById($complaintId);
+
+                        if (
+                            $selectedComplaint === null ||
+                            (int) $selectedComplaint['technician_id'] !==
+                            (int) $selectedTechnicianId ||
+                            $selectedComplaint['status'] !== 'Open'
+                        ) {
+                            $technicianComplaintPageUnavailable = true;
+                            $errors[] =
+                                'This complaint is closed or is not assigned '
+                                . 'to the selected technician.';
+                        } elseif (!$isPost) {
+                            $values = [
+                                'status' => $selectedComplaint['status'],
+                                'resolution_date' => '',
+                                'resolution_notes' => '',
+                                'technician_notes' => ''
+                            ];
+                        }
+
+                        if (
+                            $isPost &&
+                            !$errors &&
+                            !$technicianComplaintPageUnavailable
+                        ) {
+                            $complaintDB->saveTechnicianUpdate(
+                                $complaintId,
+                                $selectedTechnicianId,
+                                $values['technician_notes'] ?? '',
+                                $values['status'],
+                                $values['resolution_date'] ?? '',
+                                $values['resolution_notes'] ?? ''
+                            );
+
+                            header(
+                                'Location: ?page=technician&technician_id='
+                                    . rawurlencode($selectedTechnicianId)
+                                    . '&saved=1'
+                            );
+                            exit;
+                        }
+                    }
+                }
+            } catch (InvalidArgumentException $exception) {
+                $errors[] = $exception->getMessage();
+            } catch (PDOException $exception) {
+                error_log($exception->getMessage());
+
+                $technicianComplaintPageUnavailable = true;
+                $errors[] =
+                    'Technician complaint information could not be loaded '
+                    . 'or saved. Check the PHP error log.';
+            }
+        }
+
+        // Customer profile viewing and saving.
+        $profilePageUnavailable = false;
+        $profileCustomerOptions = [];
+        $profileCustomerId = '';
+        $profileCustomerRecord = null;
+
+        if ($page === 'profile') {
+            // Remove the sample customer values from this page.
+            if (!$isPost) {
+                $values = [];
+            }
+
+            try {
+                $customerDB = new CustomerDB();
+
+                foreach ($customerDB->getAll() as $profileCustomer) {
+                    $profileCustomerOptions[$profileCustomer->getCustomerId()] =
+                        $profileCustomer->getFullName()
+                        . ' — ' . $profileCustomer->getEmail();
+                }
+
+                $requestedProfileId = $_GET['customer_id'] ?? '';
+
+                if (is_string($requestedProfileId)) {
+                    $profileCustomerId = $requestedProfileId;
+                }
+
+                $allowedProfileIds = array_map(
+                    'strval',
+                    array_keys($profileCustomerOptions)
+                );
+
+                if ($profileCustomerId !== '') {
+                    if (!in_array(
+                        $profileCustomerId,
+                        $allowedProfileIds,
+                        true
+                    )) {
+                        $profilePageUnavailable = true;
+                        $errors[] = 'Select an existing customer.';
+                    } else {
+                        $profileCustomerRecord =
+                            $customerDB->getById($profileCustomerId);
+
+                        if ($profileCustomerRecord === null) {
+                            $profilePageUnavailable = true;
+                            $errors[] = 'The selected customer was not found.';
+                        } elseif (!$isPost) {
+                            $values = $profileCustomerRecord->toFormArray();
+                        }
+                    }
+                } elseif (
+                    $isPost ||
+                    (isset($_GET['customer_id']) &&
+                        !is_string($_GET['customer_id']))
+                ) {
+                    $profilePageUnavailable = true;
+                    $errors[] = 'Select a customer before editing a profile.';
+                }
+
+                if (
+                    $isPost &&
+                    !$errors &&
+                    !$profilePageUnavailable &&
+                    $profileCustomerRecord !== null
+                ) {
+
+                    $profileCustomerRecord->setFirstName($values['first_name']);
+                    $profileCustomerRecord->setLastName($values['last_name']);
+                    $profileCustomerRecord->setEmail($values['email']);
+                    $profileCustomerRecord->setStreetAddress(
+                        $values['street_address']
+                    );
+                    $profileCustomerRecord->setCity($values['city']);
+                    $profileCustomerRecord->setState($values['state']);
+                    $profileCustomerRecord->setZipCode($values['zip_code']);
+                    $profileCustomerRecord->setPhone($values['phone']);
+
+                    if ($customerDB->emailExists(
+                        $profileCustomerRecord->getEmail(),
+                        $profileCustomerRecord->getCustomerId()
+                    )) {
+                        $errors[] = 'That email address is already registered.';
+                    } else {
+                        $customerDB->update($profileCustomerRecord);
+
+                        header(
+                            'Location: ?page=profile&customer_id='
+                                . rawurlencode($profileCustomerId)
+                                . '&saved=1'
+                        );
+                        exit;
+                    }
+                }
+            } catch (PDOException $exception) {
+                error_log($exception->getMessage());
+
+                if (
+                    $exception->getCode() === '23000' &&
+                    (int) ($exception->errorInfo[1] ?? 0) === 1062
+                ) {
+                    $errors[] = 'That email address is already registered.';
+                } else {
+                    $profilePageUnavailable = true;
+                    $errors[] =
+                        'Customer profile information could not be loaded or saved. '
+                        . 'Check the database connection and PHP error log.';
+                }
+            }
         }
 
         $viewFiles = [

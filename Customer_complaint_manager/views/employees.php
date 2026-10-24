@@ -1,44 +1,53 @@
 <?php
-/** @var array<string, array<string, string>> $employees */
+/** @var bool $employeePageUnavailable */
+/** @var array<int, Employee> $employees */
 ?>
+<?php if (($_GET['saved'] ?? '') === '1'): ?>
+    <p role="status">Employee information saved.</p>
+<?php endif; ?>
+
 <p>
     <a href="?page=employee-form">Add Employee</a>
 </p>
 
-<table>
-    <caption>Employee List</caption>
+<?php if (!$employeePageUnavailable): ?>
+    <?php if (!$employees): ?>
+        <p>No employees have been added yet.</p>
+    <?php else: ?>
+        <table>
+            <caption>Employee List</caption>
 
-    <thead>
-        <tr>
-            <th scope="col">User ID</th>
-            <th scope="col">Name</th>
-            <th scope="col">Email</th>
-            <th scope="col">Extension</th>
-            <th scope="col">Level</th>
-            <th scope="col">Action</th>
-        </tr>
-    </thead>
+            <thead>
+                <tr>
+                    <th scope="col">User ID</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Extension</th>
+                    <th scope="col">Level</th>
+                    <th scope="col">Action</th>
+                </tr>
+            </thead>
 
-    <tbody>
-        <?php foreach ($employees as $record): ?>
-            <tr>
-                <td><?= e($record['user_id']) ?></td>
+            <tbody>
+                <?php foreach ($employees as $record): ?>
+                    <tr>
+                        <td><?= e($record->getUserId()) ?></td>
+                        <td><?= e($record->getFullName()) ?></td>
+                        <td><?= e($record->getEmail()) ?></td>
+                        <td><?= e($record->getPhoneExtension()) ?></td>
+                        <td><?= e($record->getEmployeeLevel()) ?></td>
 
-                <td>
-                    <?= e($record['first_name']) ?>
-                    <?= e($record['last_name']) ?>
-                </td>
-
-                <td><?= e($record['email']) ?></td>
-                <td><?= e($record['phone_extension']) ?></td>
-                <td><?= e($record['employee_level']) ?></td>
-
-                <td>
-                    <a href="?page=employee-form&amp;mode=edit&amp;employee=<?= e($record['user_id']) ?>">
-                        Edit
-                    </a>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
+                        <td>
+                            <a href="<?= e(
+                                            '?page=employee-form&mode=edit&employee='
+                                                . rawurlencode($record->getUserId())
+                                        ) ?>">
+                                Edit
+                            </a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+<?php endif; ?>

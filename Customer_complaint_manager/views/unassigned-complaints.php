@@ -1,9 +1,16 @@
 <?php
 
-/** @var array<int, array<string, string>> $unassignedComplaints */
+/** @var array $unassignedComplaints */
+/** @var bool $adminComplaintPageUnavailable */
 
-complaintTable(
-    $unassignedComplaints,
-    'assign',
-    'Assign'
-);
+?>
+
+<?php if (!$adminComplaintPageUnavailable): ?>
+    <?php
+    complaintTable(
+        $unassignedComplaints,
+        'assign',
+        'Assign'
+    );
+    ?>
+<?php endif; ?>

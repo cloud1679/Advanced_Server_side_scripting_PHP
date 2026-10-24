@@ -1,6 +1,15 @@
 <?php
+
 /** @var array<string, string> $values */
 ?>
+
+<?php if (($_GET['registered'] ?? '') === '1'): ?>
+    <p role="status">
+        Your customer account was saved.
+        Login functionality will be added in the security phase.
+    </p>
+<?php endif; ?>
+
 <h2>Login</h2>
 
 <form method="post">

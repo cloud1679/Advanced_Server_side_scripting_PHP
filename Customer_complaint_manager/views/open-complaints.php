@@ -1,9 +1,20 @@
 <?php
 
-/** @var array<int, array<string, string>> $complaints */
+/** @var array $complaints */
+/** @var bool $adminComplaintPageUnavailable */
 
-complaintTable(
-    $complaints,
-    'assign',
-    'Assign'
-);
+?>
+
+<?php if (!$adminComplaintPageUnavailable): ?>
+    <?php if (($_GET['assigned'] ?? '') === '1'): ?>
+        <p role="status">Technician assignment saved.</p>
+    <?php endif; ?>
+
+    <?php
+    complaintTable(
+        $complaints,
+        'assign',
+        'Assign'
+    );
+    ?>
+<?php endif; ?>

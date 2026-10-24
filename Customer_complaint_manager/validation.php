@@ -74,8 +74,13 @@ const STATES = [
     'WY'
 ];
 
-function validateForm($page, $data, $editingEmployee = false)
-{
+function validateForm(
+    $page,
+    $data,
+    $editingEmployee = false,
+    array $productOptions = [],
+    array $categoryOptions = []
+) {
     $errors = [];
 
     $get = function ($field) use ($data) {
@@ -200,8 +205,18 @@ function validateForm($page, $data, $editingEmployee = false)
             break;
 
         case 'new-complaint':
-            $choice('product', 'product or service', PRODUCTS);
-            $choice('category', 'complaint category', CATEGORIES);
+            $choice(
+                'product_id',
+                'product or service',
+                array_map('strval', array_keys($productOptions))
+            );
+
+            $choice(
+                'category_id',
+                'complaint category',
+                array_map('strval', array_keys($categoryOptions))
+            );
+
             $text('description', 'Complaint description', 5000);
             break;
 
@@ -260,11 +275,6 @@ function validateForm($page, $data, $editingEmployee = false)
         case 'employee-form':
             $userId = $text('user_id', 'User ID', 50);
 
-            // Temporary comparison against the sample employee.
-            if ($editingEmployee && $userId !== 'treed') {
-                $errors[] = 'An existing employee User ID cannot be changed.';
-            }
-
             $text('first_name', 'First name', 50);
             $text('last_name', 'Last name', 50);
             $email();
@@ -287,12 +297,51 @@ function validateForm($page, $data, $editingEmployee = false)
                 'Technician',
                 'Administrator'
             ]);
+
+            if (!$editingEmployee) {
+                $password('new_password');
+
+                $text(
+                    'confirm_password',
+                    'Password confirmation',
+                    72
+                );
+
+                if ($get('new_password') !== $get('confirm_password')) {
+                    $errors[] = 'The new passwords do not match.';
+                }
+            }
+
             break;
 
         case 'assign':
-            // Temporary choices matching the sample records.
-            $choice('complaint_id', 'complaint', ['1001', '1002']);
-            $choice('technician_id', 'technician', ['1', '2']);
+            $complaintId = $text(
+                'complaint_id',
+                'Complaint ID',
+                10
+            );
+
+            $technicianId = $text(
+                'technician_id',
+                'Technician ID',
+                10
+            );
+
+            if (
+                $complaintId !== '' &&
+                !preg_match('/^[1-9][0-9]{0,9}$/', $complaintId)
+            ) {
+                $errors[] = 'Select a valid complaint.';
+            }
+
+            if (
+                $technicianId !== '' &&
+                !preg_match('/^[1-9][0-9]{0,9}$/', $technicianId)
+            ) {
+                $errors[] = 'Select a valid technician.';
+            }
+
+            // The controller also checks these IDs against MySQL records.
             break;
 
         case 'reset-password':
@@ -305,8 +354,10 @@ function validateForm($page, $data, $editingEmployee = false)
             );
 
             if ($get('account_type') === 'Customer') {
-                if ($login !== '' &&
-                    !filter_var($login, FILTER_VALIDATE_EMAIL)) {
+                if (
+                    $login !== '' &&
+                    !filter_var($login, FILTER_VALIDATE_EMAIL)
+                ) {
                     $errors[] = 'Customers must enter a valid email address.';
                 }
             } elseif (strlen($login) > 50) {

@@ -1,11 +1,35 @@
 <?php
+
 /** @var array<string, string> $values */
 ?>
-<form method="post">
+
+<form method="post" action="?page=register">
     <?php
-    inputField($values, 'first_name', 'First Name', 'text', 50);
-    inputField($values, 'last_name', 'Last Name', 'text', 50);
-    inputField($values, 'email', 'Email Address', 'email', 150);
+    csrfField();
+
+    inputField(
+        $values,
+        'first_name',
+        'First Name',
+        'text',
+        50
+    );
+
+    inputField(
+        $values,
+        'last_name',
+        'Last Name',
+        'text',
+        50
+    );
+
+    inputField(
+        $values,
+        'email',
+        'Email Address',
+        'email',
+        150
+    );
 
     inputField(
         $values,
@@ -15,7 +39,13 @@
         150
     );
 
-    inputField($values, 'city', 'City', 'text', 75);
+    inputField(
+        $values,
+        'city',
+        'City',
+        'text',
+        75
+    );
 
     selectField(
         $values,
@@ -24,8 +54,21 @@
         optionsFromList(STATES)
     );
 
-    inputField($values, 'zip_code', 'ZIP Code', 'text', 10);
-    inputField($values, 'phone', 'Phone Number', 'tel', 20);
+    inputField(
+        $values,
+        'zip_code',
+        'ZIP Code',
+        'text',
+        10
+    );
+
+    inputField(
+        $values,
+        'phone',
+        'Phone Number',
+        'tel',
+        20
+    );
 
     inputField(
         $values,

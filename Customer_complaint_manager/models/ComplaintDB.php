@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Complaint.php';
+require_once __DIR__ . '/ComplaintNote.php';
 
 class ComplaintDB
 {
@@ -43,6 +44,40 @@ class ComplaintDB
         );
     }
 
+    private function createObject(array $row)
+    {
+        $complaint = new Complaint();
+
+        $complaint->setComplaintId($row['id']);
+        $complaint->setCustomerId($row['customer_id']);
+        $complaint->setProductId($row['product_id']);
+        $complaint->setCategoryId($row['category_id']);
+        $complaint->setTechnicianId($row['technician_id']);
+        $complaint->setDescription($row['description']);
+        $complaint->setStatus($row['status']);
+        $complaint->setCreatedAt($row['created_at']);
+        $complaint->setResolutionDate($row['resolution_date']);
+        $complaint->setResolutionNotes($row['resolution_notes']);
+        $complaint->setImagePath($row['image_path']);
+        $complaint->setCustomerName($row['customer']);
+        $complaint->setProductName($row['product']);
+        $complaint->setCategoryName($row['category']);
+        $complaint->setTechnicianName($row['technician']);
+
+        return $complaint;
+    }
+
+    private function fetchComplaints($statement)
+    {
+        $complaints = [];
+
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+            $complaints[] = $this->createObject($row);
+        }
+
+        return $complaints;
+    }
+
     private function selectSql()
     {
         return "
@@ -53,6 +88,7 @@ class ComplaintDB
                 c.product_id,
                 c.category_id,
                 c.description,
+                c.image_path,
                 c.status,
                 c.created_at,
                 c.resolution_date,
@@ -81,14 +117,14 @@ class ComplaintDB
         $statement = $this->connection->prepare(
             $this->selectSql()
                 . ' WHERE c.customer_id = :customer_id
-                ORDER BY c.created_at DESC, c.complaint_id DESC'
+                    ORDER BY c.created_at DESC, c.complaint_id DESC'
         );
 
         $statement->execute([
             'customer_id' => $customerId
         ]);
 
-        return $statement->fetchAll();
+        return $this->fetchComplaints($statement);
     }
 
     public function getById($complaintId)
@@ -102,14 +138,19 @@ class ComplaintDB
             'complaint_id' => $complaintId
         ]);
 
-        $complaint = $statement->fetch();
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
 
-        if (!$complaint) {
+        if (!$row) {
             return null;
         }
 
+        $complaint = $this->createObject($row);
+
         $notesStatement = $this->connection->prepare(
             "SELECT
+                n.note_id,
+                n.complaint_id,
+                n.employee_id,
                 n.created_at,
                 n.note_text,
                 CONCAT(e.first_name, ' ', e.last_name) AS author
@@ -126,15 +167,20 @@ class ComplaintDB
 
         $notes = [];
 
-        foreach ($notesStatement->fetchAll() as $note) {
-            $notes[] = $note['created_at']
-                . ' — ' . $note['author']
-                . ': ' . $note['note_text'];
+        while ($noteRow = $notesStatement->fetch(PDO::FETCH_ASSOC)) {
+            $note = new ComplaintNote();
+
+            $note->setNoteId($noteRow['note_id']);
+            $note->setComplaintId($noteRow['complaint_id']);
+            $note->setEmployeeId($noteRow['employee_id']);
+            $note->setNoteText($noteRow['note_text']);
+            $note->setCreatedAt($noteRow['created_at']);
+            $note->setAuthorName($noteRow['author']);
+
+            $notes[] = $note;
         }
 
-        $complaint['notes'] = $notes
-            ? implode("\n\n", $notes)
-            : 'No technician notes have been added.';
+        $complaint->setNotes($notes);
 
         return $complaint;
     }
@@ -144,10 +190,10 @@ class ComplaintDB
         $statement = $this->connection->query(
             $this->selectSql()
                 . " WHERE c.status = 'Open'
-            ORDER BY c.created_at, c.complaint_id"
+                    ORDER BY c.created_at, c.complaint_id"
         );
 
-        return $statement->fetchAll();
+        return $this->fetchComplaints($statement);
     }
 
     public function getUnassigned()
@@ -155,48 +201,52 @@ class ComplaintDB
         $statement = $this->connection->query(
             $this->selectSql()
                 . " WHERE c.status = 'Open'
-            AND c.technician_id IS NULL
-            ORDER BY c.created_at, c.complaint_id"
+                    AND c.technician_id IS NULL
+                    ORDER BY c.created_at, c.complaint_id"
         );
 
-        return $statement->fetchAll();
+        return $this->fetchComplaints($statement);
     }
 
     public function getTechnicians()
     {
         $statement = $this->connection->query(
             "SELECT
-            employee_id,
-            user_id,
-            CONCAT(first_name, ' ', last_name) AS name
-         FROM employees
-         WHERE employee_level = 'Technician'
-         ORDER BY last_name, first_name, employee_id"
+                employee_id,
+                user_id,
+                CONCAT(first_name, ' ', last_name) AS name
+             FROM employees
+             WHERE employee_level = 'Technician'
+             ORDER BY last_name, first_name, employee_id"
         );
 
-        return $statement->fetchAll();
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function getTechnicianWorkload()
     {
         $statement = $this->connection->query(
             "SELECT
-            e.employee_id,
-            CONCAT(e.first_name, ' ', e.last_name) AS name,
-            COUNT(c.complaint_id) AS count
-         FROM employees e
-         LEFT JOIN complaints c
-            ON c.technician_id = e.employee_id
-            AND c.status = 'Open'
-         WHERE e.employee_level = 'Technician'
-         GROUP BY
-            e.employee_id,
-            e.first_name,
-            e.last_name
-         ORDER BY count, e.last_name, e.first_name, e.employee_id"
+                e.employee_id,
+                CONCAT(e.first_name, ' ', e.last_name) AS name,
+                COUNT(c.complaint_id) AS count
+             FROM employees e
+             LEFT JOIN complaints c
+                ON c.technician_id = e.employee_id
+                AND c.status = 'Open'
+             WHERE e.employee_level = 'Technician'
+             GROUP BY
+                e.employee_id,
+                e.first_name,
+                e.last_name
+             ORDER BY
+                count,
+                e.last_name,
+                e.first_name,
+                e.employee_id"
         );
 
-        return $statement->fetchAll();
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function getByTechnicianId($technicianId)
@@ -204,15 +254,15 @@ class ComplaintDB
         $statement = $this->connection->prepare(
             $this->selectSql()
                 . " WHERE c.technician_id = :technician_id
-            AND c.status = 'Open'
-            ORDER BY c.created_at, c.complaint_id"
+                    AND c.status = 'Open'
+                    ORDER BY c.created_at, c.complaint_id"
         );
 
         $statement->execute([
             'technician_id' => $technicianId
         ]);
 
-        return $statement->fetchAll();
+        return $this->fetchComplaints($statement);
     }
 
     public function saveTechnicianUpdate(
@@ -227,7 +277,9 @@ class ComplaintDB
         $resolutionNotes = trim($resolutionNotes);
 
         if (!in_array($status, ['Open', 'Closed'], true)) {
-            throw new InvalidArgumentException('Select a valid status.');
+            throw new InvalidArgumentException(
+                'Select a valid status.'
+            );
         }
 
         if ($status === 'Closed') {
@@ -264,41 +316,45 @@ class ComplaintDB
         try {
             $statement = $this->connection->prepare(
                 'SELECT technician_id, status
-             FROM complaints
-             WHERE complaint_id = :complaint_id
-             FOR UPDATE'
+                 FROM complaints
+                 WHERE complaint_id = :complaint_id
+                 FOR UPDATE'
             );
 
             $statement->execute([
                 'complaint_id' => $complaintId
             ]);
 
-            $complaint = $statement->fetch();
+            $complaint = $statement->fetch(PDO::FETCH_ASSOC);
 
-            if (!$complaint ||
+            if (
+                !$complaint ||
                 (int) $complaint['technician_id'] !== (int) $technicianId ||
-                $complaint['status'] !== 'Open') {
+                $complaint['status'] !== 'Open'
+            ) {
                 throw new InvalidArgumentException(
                     'This complaint is closed or is no longer assigned '
-                    . 'to the selected technician.'
+                        . 'to the selected technician.'
                 );
             }
 
             $statement = $this->connection->prepare(
                 'SELECT employee_level
-             FROM employees
-             WHERE employee_id = :employee_id
-             FOR UPDATE'
+                 FROM employees
+                 WHERE employee_id = :employee_id
+                 FOR UPDATE'
             );
 
             $statement->execute([
                 'employee_id' => $technicianId
             ]);
 
-            $employee = $statement->fetch();
+            $employee = $statement->fetch(PDO::FETCH_ASSOC);
 
-            if (!$employee ||
-                $employee['employee_level'] !== 'Technician') {
+            if (
+                !$employee ||
+                $employee['employee_level'] !== 'Technician'
+            ) {
                 throw new InvalidArgumentException(
                     'Select a valid technician.'
                 );
@@ -307,14 +363,14 @@ class ComplaintDB
             if ($notes !== '') {
                 $statement = $this->connection->prepare(
                     'INSERT INTO complaint_notes (
-                    complaint_id,
-                    employee_id,
-                    note_text
-                 ) VALUES (
-                    :complaint_id,
-                    :employee_id,
-                    :note_text
-                 )'
+                        complaint_id,
+                        employee_id,
+                        note_text
+                     ) VALUES (
+                        :complaint_id,
+                        :employee_id,
+                        :note_text
+                     )'
                 );
 
                 $statement->execute([
@@ -326,18 +382,18 @@ class ComplaintDB
 
             $statement = $this->connection->prepare(
                 'UPDATE complaints SET
-                status = :status,
-                resolution_date = :resolution_date,
-                resolution_notes = :resolution_notes
-             WHERE complaint_id = :complaint_id'
+                    status = :status,
+                    resolution_date = :resolution_date,
+                    resolution_notes = :resolution_notes
+                 WHERE complaint_id = :complaint_id'
             );
 
             $statement->execute([
                 'status' => $status,
                 'resolution_date' =>
-                    $status === 'Closed' ? $resolutionDate : null,
+                $status === 'Closed' ? $resolutionDate : null,
                 'resolution_notes' =>
-                    $status === 'Closed' ? $resolutionNotes : null,
+                $status === 'Closed' ? $resolutionNotes : null,
                 'complaint_id' => $complaintId
             ]);
 
@@ -356,19 +412,18 @@ class ComplaintDB
         $this->connection->beginTransaction();
 
         try {
-            // Lock the complaint so assignment uses its current status.
             $statement = $this->connection->prepare(
                 'SELECT status
-             FROM complaints
-             WHERE complaint_id = :complaint_id
-             FOR UPDATE'
+                 FROM complaints
+                 WHERE complaint_id = :complaint_id
+                 FOR UPDATE'
             );
 
             $statement->execute([
                 'complaint_id' => $complaintId
             ]);
 
-            $complaint = $statement->fetch();
+            $complaint = $statement->fetch(PDO::FETCH_ASSOC);
 
             if (!$complaint || $complaint['status'] !== 'Open') {
                 throw new InvalidArgumentException(
@@ -376,19 +431,18 @@ class ComplaintDB
                 );
             }
 
-            // Verify the employee still exists and is a technician.
             $statement = $this->connection->prepare(
                 'SELECT employee_level
-             FROM employees
-             WHERE employee_id = :employee_id
-             FOR UPDATE'
+                 FROM employees
+                 WHERE employee_id = :employee_id
+                 FOR UPDATE'
             );
 
             $statement->execute([
                 'employee_id' => $technicianId
             ]);
 
-            $employee = $statement->fetch();
+            $employee = $statement->fetch(PDO::FETCH_ASSOC);
 
             if (
                 !$employee ||
@@ -401,8 +455,8 @@ class ComplaintDB
 
             $statement = $this->connection->prepare(
                 'UPDATE complaints
-             SET technician_id = :technician_id
-             WHERE complaint_id = :complaint_id'
+                 SET technician_id = :technician_id
+                 WHERE complaint_id = :complaint_id'
             );
 
             $statement->execute([

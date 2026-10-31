@@ -1,7 +1,9 @@
 <?php
+
 /** @var bool $employeePageUnavailable */
-/** @var array<int, Employee> $employees */
+/** @var Employee[] $employees */
 ?>
+
 <?php if (($_GET['saved'] ?? '') === '1'): ?>
     <p role="status">Employee information saved.</p>
 <?php endif; ?>
@@ -43,6 +45,22 @@
                                                 . rawurlencode($record->getUserId())
                                         ) ?>">
                                 Edit
+                            </a>
+
+                            |
+
+                            <a href="<?= e(
+                                            '?page=admin-reset-password'
+                                                . '&account_type='
+                                                . rawurlencode(
+                                                    $record->getEmployeeLevel()
+                                                )
+                                                . '&id='
+                                                . rawurlencode(
+                                                    (string) $record->getEmployeeId()
+                                                )
+                                        ) ?>">
+                                Reset Password
                             </a>
                         </td>
                     </tr>

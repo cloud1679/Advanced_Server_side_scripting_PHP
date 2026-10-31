@@ -1,10 +1,8 @@
 <?php
 
-/** @var array $values */
-/** @var array|null $selectedComplaint */
-/** @var string $selectedTechnicianId */
+/** @var array<string, string> $values */
+/** @var Complaint|null $selectedComplaint */
 /** @var bool $technicianComplaintPageUnavailable */
-
 ?>
 
 <?php if (
@@ -15,10 +13,21 @@
 
     <h3>Existing Technician Notes</h3>
 
-    <p><?= nl2br(e($selectedComplaint['notes'])) ?></p>
+    <p><?= nl2br(e(
+            complaintNotesText($selectedComplaint->getNotes())
+        )) ?></p>
 
-    <form method="post">
+    <form
+        method="post"
+        action="<?= e(
+                    '?page=update-complaint&id='
+                        . rawurlencode(
+                            (string) $selectedComplaint->getComplaintId()
+                        )
+                ) ?>">
         <?php
+        csrfField();
+
         textAreaField(
             $values,
             'technician_notes',
@@ -56,16 +65,7 @@
             and resolution notes.
         </p>
 
-        <p>
-            <button type="submit">Save Update</button>
-
-            <a href="<?= e(
-                            '?page=technician&technician_id='
-                                . rawurlencode($selectedTechnicianId)
-                        ) ?>">
-                Cancel and Return
-            </a>
-        </p>
+        <?php formActions('Save Update', 'technician'); ?>
     </form>
 <?php else: ?>
     <p>

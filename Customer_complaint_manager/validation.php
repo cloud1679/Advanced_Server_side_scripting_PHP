@@ -1,19 +1,5 @@
 <?php
 
-const PRODUCTS = [
-    'Laptop Computer',
-    'Desktop Computer',
-    'Printer',
-    'Computer Repair',
-    'Network Setup'
-];
-
-const CATEGORIES = [
-    'Product Defect',
-    'Warranty',
-    'Service Issue'
-];
-
 const ACCOUNT_TYPES = [
     'Customer',
     'Technician',
@@ -85,13 +71,20 @@ function validateForm(
 
     $get = function ($field) use ($data) {
         $value = $data[$field] ?? '';
+
         return is_string($value) ? $value : '';
     };
 
-    $text = function ($field, $label, $max, $required = true)
-    use ($data, $get, &$errors) {
-
-        if (isset($data[$field]) && !is_string($data[$field])) {
+    $text = function (
+        $field,
+        $label,
+        $max,
+        $required = true
+    ) use ($data, $get, &$errors) {
+        if (
+            array_key_exists($field, $data) &&
+            !is_string($data[$field])
+        ) {
             $errors[] = "$label is invalid.";
             return '';
         }
@@ -113,9 +106,11 @@ function validateForm(
         return $value;
     };
 
-    $choice = function ($field, $label, $allowed)
-    use ($get, &$errors) {
-
+    $choice = function (
+        $field,
+        $label,
+        array $allowed
+    ) use ($get, &$errors) {
         if (!in_array($get($field), $allowed, true)) {
             $errors[] = "Select a valid $label.";
         }
@@ -132,21 +127,62 @@ function validateForm(
         }
     };
 
-    $password = function ($field) use ($get, &$errors) {
+    // Passwords are checked without trimming their contents.
+    $existingPassword = function (
+        $field,
+        $label
+    ) use ($data, $get, &$errors) {
+        if (
+            !isset($data[$field]) ||
+            !is_string($data[$field]) ||
+            $get($field) === ''
+        ) {
+            $errors[] = "$label is required.";
+            return;
+        }
+
+        if (
+            strlen($get($field)) > 72 ||
+            strpos($get($field), "\0") !== false
+        ) {
+            $errors[] = "$label is invalid.";
+        }
+    };
+
+    $newPassword = function (
+        $field
+    ) use ($get, &$errors) {
         $value = $get($field);
 
         if (
             strlen($value) < 8 ||
             strlen($value) > 72 ||
+            strpos($value, "\0") !== false ||
             !preg_match('/[A-Z]/', $value) ||
             !preg_match('/[a-z]/', $value) ||
             !preg_match('/[0-9]/', $value) ||
             !preg_match('/[^a-zA-Z0-9]/', $value)
         ) {
-
-            $errors[] = 'New passwords must contain 8–72 characters, '
+            $errors[] =
+                'New passwords must contain 8–72 characters, '
                 . 'including uppercase and lowercase letters, '
-                . 'a number, and a special character.';
+                . 'a number, and a special character. '
+                . 'The maximum length is 72 bytes.';
+        }
+    };
+
+    $confirmPassword = function () use (
+        $get,
+        $existingPassword,
+        &$errors
+    ) {
+        $existingPassword(
+            'confirm_password',
+            'Password confirmation'
+        );
+
+        if ($get('new_password') !== $get('confirm_password')) {
+            $errors[] = 'The new passwords do not match.';
         }
     };
 
@@ -157,6 +193,7 @@ function validateForm(
             $text('first_name', 'First name', 50);
             $text('last_name', 'Last name', 50);
             $email();
+
             $text('street_address', 'Street address', 150);
             $text('city', 'City', 75);
             $choice('state', 'state', STATES);
@@ -167,7 +204,8 @@ function validateForm(
                 $zip !== '' &&
                 !preg_match('/^\d{5}(-\d{4})?$/', $zip)
             ) {
-                $errors[] = 'Use a ZIP code such as 23456 or 23456-1234.';
+                $errors[] =
+                    'Use a ZIP code such as 23456 or 23456-1234.';
             }
 
             $phone = $text('phone', 'Phone number', 20);
@@ -179,50 +217,83 @@ function validateForm(
                     $phone
                 )
             ) {
-                $errors[] = 'Enter a valid 10-digit US phone number.';
+                $errors[] =
+                    'Enter a valid 10-digit US phone number.';
             }
 
             if ($page === 'register') {
-                $password('new_password');
+                $newPassword('new_password');
             }
             break;
 
         case 'login':
-            $choice('account_type', 'account type', ACCOUNT_TYPES);
-            $login = $text('login_id', 'Email or employee user ID', 150);
-            $text('password', 'Password', 72);
+            $choice(
+                'account_type',
+                'account type',
+                ACCOUNT_TYPES
+            );
+
+            $login = $text(
+                'login_id',
+                'Customer email or employee User ID',
+                150
+            );
 
             if ($get('account_type') === 'Customer') {
                 if (
                     $login !== '' &&
                     !filter_var($login, FILTER_VALIDATE_EMAIL)
                 ) {
-                    $errors[] = 'Customers must use a valid email address.';
+                    $errors[] =
+                        'Customers must enter a valid email address.';
                 }
             } elseif (strlen($login) > 50) {
-                $errors[] = 'Employee user IDs cannot exceed 50 characters.';
+                $errors[] =
+                    'Employee User IDs cannot exceed 50 characters.';
             }
+
+            $existingPassword('password', 'Password');
             break;
 
         case 'new-complaint':
             $choice(
                 'product_id',
                 'product or service',
-                array_map('strval', array_keys($productOptions))
+                array_map(
+                    'strval',
+                    array_keys($productOptions)
+                )
             );
 
             $choice(
                 'category_id',
                 'complaint category',
-                array_map('strval', array_keys($categoryOptions))
+                array_map(
+                    'strval',
+                    array_keys($categoryOptions)
+                )
             );
 
-            $text('description', 'Complaint description', 5000);
+            $text(
+                'description',
+                'Complaint description',
+                5000
+            );
             break;
 
         case 'update-complaint':
-            $text('technician_notes', 'Technician notes', 5000, false);
-            $choice('status', 'status', ['Open', 'Closed']);
+            $text(
+                'technician_notes',
+                'Technician notes',
+                5000,
+                false
+            );
+
+            $choice(
+                'status',
+                'status',
+                ['Open', 'Closed']
+            );
 
             $closed = $get('status') === 'Closed';
 
@@ -257,24 +328,24 @@ function validateForm(
                 }
 
                 if (!$valid) {
-                    $errors[] = 'Enter a valid resolution date.';
+                    $errors[] =
+                        'Enter a valid resolution date.';
                 }
             }
             break;
 
         case 'change-password':
-            $text('current_password', 'Current password', 72);
-            $password('new_password');
-            $text('confirm_password', 'Password confirmation', 72);
+            $existingPassword(
+                'current_password',
+                'Current or temporary password'
+            );
 
-            if ($get('new_password') !== $get('confirm_password')) {
-                $errors[] = 'The new passwords do not match.';
-            }
+            $newPassword('new_password');
+            $confirmPassword();
             break;
 
         case 'employee-form':
-            $userId = $text('user_id', 'User ID', 50);
-
+            $text('user_id', 'User ID', 50);
             $text('first_name', 'First name', 50);
             $text('last_name', 'Last name', 50);
             $email();
@@ -290,28 +361,20 @@ function validateForm(
                 $extension !== '' &&
                 !preg_match('/^\d+$/', $extension)
             ) {
-                $errors[] = 'Phone extension must contain only numbers.';
+                $errors[] =
+                    'Phone extension must contain only numbers.';
             }
 
-            $choice('employee_level', 'employee level', [
-                'Technician',
-                'Administrator'
-            ]);
+            $choice(
+                'employee_level',
+                'employee level',
+                ['Technician', 'Administrator']
+            );
 
             if (!$editingEmployee) {
-                $password('new_password');
-
-                $text(
-                    'confirm_password',
-                    'Password confirmation',
-                    72
-                );
-
-                if ($get('new_password') !== $get('confirm_password')) {
-                    $errors[] = 'The new passwords do not match.';
-                }
+                $newPassword('new_password');
+                $confirmPassword();
             }
-
             break;
 
         case 'assign':
@@ -329,48 +392,29 @@ function validateForm(
 
             if (
                 $complaintId !== '' &&
-                !preg_match('/^[1-9][0-9]{0,9}$/', $complaintId)
+                !preg_match(
+                    '/^[1-9][0-9]{0,9}$/',
+                    $complaintId
+                )
             ) {
                 $errors[] = 'Select a valid complaint.';
             }
 
             if (
                 $technicianId !== '' &&
-                !preg_match('/^[1-9][0-9]{0,9}$/', $technicianId)
+                !preg_match(
+                    '/^[1-9][0-9]{0,9}$/',
+                    $technicianId
+                )
             ) {
                 $errors[] = 'Select a valid technician.';
             }
 
-            // The controller also checks these IDs against MySQL records.
+            // The controller checks these IDs against MySQL.
             break;
 
-        case 'reset-password':
-            $choice('account_type', 'account type', ACCOUNT_TYPES);
-
-            $login = $text(
-                'login_id',
-                'Email or Employee User ID',
-                150
-            );
-
-            if ($get('account_type') === 'Customer') {
-                if (
-                    $login !== '' &&
-                    !filter_var($login, FILTER_VALIDATE_EMAIL)
-                ) {
-                    $errors[] = 'Customers must enter a valid email address.';
-                }
-            } elseif (strlen($login) > 50) {
-                $errors[] = 'Employee user IDs cannot exceed 50 characters.';
-            }
-
-            $password('new_password');
-            $text('confirm_password', 'Password confirmation', 72);
-
-            if ($get('new_password') !== $get('confirm_password')) {
-                $errors[] = 'The new passwords do not match.';
-            }
-            break;
+            // Administrator password-reset confirmation is checked
+            // directly in PageController against the signed-in admin.
     }
 
     return $errors;

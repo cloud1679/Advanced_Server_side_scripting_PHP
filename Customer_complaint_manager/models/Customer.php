@@ -12,6 +12,7 @@ class Customer
     private $zipCode = '';
     private $phone = '';
     private $passwordHash = '';
+    private $mustChangePassword = false;
 
     public function getCustomerId()
     {
@@ -20,7 +21,9 @@ class Customer
 
     public function setCustomerId($value)
     {
-        $this->customerId = $value === null ? null : (int) $value;
+        $this->customerId = $value === null
+            ? null
+            : (int) $value;
     }
 
     public function getFirstName()
@@ -113,13 +116,22 @@ class Customer
         $this->passwordHash = $value;
     }
 
+    public function getMustChangePassword()
+    {
+        return $this->mustChangePassword;
+    }
+
+    public function setMustChangePassword($value)
+    {
+        $this->mustChangePassword = (bool) $value;
+    }
+
     public function getFullName()
     {
         return $this->firstName . ' ' . $this->lastName;
     }
 
-    // Used by the existing form controls.
-    // Password information is deliberately excluded.
+    // Password information is excluded from ordinary profile forms.
     public function toFormArray()
     {
         return [

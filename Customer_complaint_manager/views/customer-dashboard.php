@@ -1,14 +1,26 @@
 <?php
-/** @var array<string, string> $customer */
+
+/** @var string $currentUserName */
 ?>
+
 <p>
-    Welcome,
-    <?= e($customer['first_name']) ?>
-    <?= e($customer['last_name']) ?>.
+    Welcome, <?= e($currentUserName ?? '') ?>.
 </p>
 
 <ul>
-    <li><a href="?page=profile">My Profile</a></li>
-    <li><a href="?page=new-complaint">Submit a Complaint</a></li>
-    <li><a href="?page=my-complaints">My Complaints</a></li>
+    <li>
+        <a href="?page=profile">My Profile</a>
+    </li>
+
+    <li>
+        <a href="?page=new-complaint">Submit a Complaint</a>
+    </li>
+
+    <li>
+        <a href="?page=my-complaints">My Complaints</a>
+    </li>
+
+    <li>
+        <a href="?page=change-password">Change Password</a>
+    </li>
 </ul>

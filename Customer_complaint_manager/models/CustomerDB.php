@@ -12,7 +12,7 @@ class CustomerDB
         $this->connection = Database::getConnection();
     }
 
-    private function createObject($row)
+    private function createObject(array $row)
     {
         $customer = new Customer();
 
@@ -27,6 +27,10 @@ class CustomerDB
         $customer->setPhone($row['phone']);
         $customer->setPasswordHash($row['password_hash']);
 
+        $customer->setMustChangePassword(
+            $row['must_change_password']
+        );
+
         return $customer;
     }
 
@@ -39,7 +43,7 @@ class CustomerDB
 
         $customers = [];
 
-        while ($row = $statement->fetch()) {
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
             $customers[] = $this->createObject($row);
         }
 
@@ -57,18 +61,78 @@ class CustomerDB
             'customer_id' => $customerId
         ]);
 
-        $row = $statement->fetch();
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
 
         return $row ? $this->createObject($row) : null;
     }
 
+    public function getByEmail($email)
+    {
+        $statement = $this->connection->prepare(
+            'SELECT * FROM customers
+             WHERE email = :email
+             LIMIT 1'
+        );
+
+        $statement->execute([
+            'email' => trim($email)
+        ]);
+
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return $row ? $this->createObject($row) : null;
+    }
+
+    public function authenticate($email, $password)
+    {
+        $customer = $this->getByEmail($email);
+
+        if ($customer === null) {
+            return null;
+        }
+
+        if (!password_verify(
+            $password,
+            $customer->getPasswordHash()
+        )) {
+            return null;
+        }
+
+        if (password_needs_rehash(
+            $customer->getPasswordHash(),
+            PASSWORD_DEFAULT
+        )) {
+            $newHash = password_hash(
+                $password,
+                PASSWORD_DEFAULT
+            );
+
+            // Rehashing must preserve any required password change.
+            $this->updatePassword(
+                $customer->getCustomerId(),
+                $newHash,
+                $customer->getMustChangePassword()
+            );
+
+            $customer->setPasswordHash($newHash);
+        }
+
+        return $customer;
+    }
+
     public function emailExists($email, $excludeId = null)
     {
-        $sql = 'SELECT COUNT(*) FROM customers WHERE email = :email';
-        $parameters = ['email' => $email];
+        $sql = 'SELECT COUNT(*)
+                FROM customers
+                WHERE email = :email';
+
+        $parameters = [
+            'email' => trim($email)
+        ];
 
         if ($excludeId !== null) {
             $sql .= ' AND customer_id <> :customer_id';
+
             $parameters['customer_id'] = $excludeId;
         }
 
@@ -90,7 +154,8 @@ class CustomerDB
                 state,
                 zip_code,
                 phone,
-                password_hash
+                password_hash,
+                must_change_password
              ) VALUES (
                 :email,
                 :first_name,
@@ -100,12 +165,18 @@ class CustomerDB
                 :state,
                 :zip_code,
                 :phone,
-                :password_hash
+                :password_hash,
+                :must_change_password
              )'
         );
 
         $parameters = $customer->toFormArray();
-        $parameters['password_hash'] = $customer->getPasswordHash();
+
+        $parameters['password_hash'] =
+            $customer->getPasswordHash();
+
+        $parameters['must_change_password'] =
+            $customer->getMustChangePassword() ? 1 : 0;
 
         $statement->execute($parameters);
 
@@ -116,6 +187,7 @@ class CustomerDB
 
     public function update(Customer $customer)
     {
+        // Profile editing does not change password information.
         $statement = $this->connection->prepare(
             'UPDATE customers SET
                 email = :email,
@@ -130,8 +202,56 @@ class CustomerDB
         );
 
         $parameters = $customer->toFormArray();
-        $parameters['customer_id'] = $customer->getCustomerId();
+
+        $parameters['customer_id'] =
+            $customer->getCustomerId();
 
         $statement->execute($parameters);
+    }
+
+    // Expects a hash from password_hash(), not a plain password.
+    // A normal password change clears the temporary-password flag.
+    public function updatePassword(
+        $customerId,
+        $passwordHash,
+        $mustChangePassword = false
+    ) {
+        $hashInformation = is_string($passwordHash)
+            ? password_get_info($passwordHash)
+            : [];
+
+        if (
+            ($hashInformation['algoName'] ?? 'unknown')
+            === 'unknown'
+        ) {
+            throw new InvalidArgumentException(
+                'A valid password hash is required.'
+            );
+        }
+
+        $statement = $this->connection->prepare(
+            'UPDATE customers SET
+                password_hash = :password_hash,
+                must_change_password = :must_change_password
+             WHERE customer_id = :customer_id'
+        );
+
+        $statement->execute([
+            'password_hash' => $passwordHash,
+            'must_change_password' => $mustChangePassword ? 1 : 0,
+            'customer_id' => $customerId
+        ]);
+    }
+
+    // The administrator controller generates and hashes the password.
+    public function setTemporaryPassword(
+        $customerId,
+        $passwordHash
+    ) {
+        $this->updatePassword(
+            $customerId,
+            $passwordHash,
+            true
+        );
     }
 }

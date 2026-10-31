@@ -4,7 +4,6 @@
 /** @var array $complaintOptions */
 /** @var array $technicians */
 /** @var bool $adminComplaintPageUnavailable */
-
 ?>
 
 <?php if (!$adminComplaintPageUnavailable): ?>
@@ -28,8 +27,10 @@
             <a href="?page=admin-dashboard">Back to Dashboard</a>
         </p>
     <?php else: ?>
-        <form method="post">
+        <form method="post" action="?page=assign">
             <?php
+            csrfField();
+
             selectField(
                 $values,
                 'complaint_id',

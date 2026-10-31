@@ -1,37 +1,35 @@
 <?php
 
-/** @var array|null $selectedComplaint */
+/** @var Complaint|null $selectedComplaint */
 /** @var bool $complaintPageUnavailable */
-
 ?>
 
-<?php if (!$complaintPageUnavailable && $selectedComplaint !== null): ?>
+<?php if (
+    !$complaintPageUnavailable &&
+    $selectedComplaint !== null
+): ?>
     <?php complaintSummary($selectedComplaint); ?>
 
     <h3>Technician Notes</h3>
 
-    <p><?= nl2br(e($selectedComplaint['notes'])) ?></p>
+    <p><?= nl2br(e(
+            complaintNotesText($selectedComplaint->getNotes())
+        )) ?></p>
 
-    <?php if ($selectedComplaint['status'] === 'Closed'): ?>
+    <?php if ($selectedComplaint->getStatus() === 'Closed'): ?>
         <h3>Resolution</h3>
 
         <p>
             <strong>Resolution Date:</strong>
-            <?= e($selectedComplaint['resolution_date'] ?? '') ?>
+            <?= e($selectedComplaint->getResolutionDate() ?? '') ?>
         </p>
 
-        <p>
-            <?= nl2br(e($selectedComplaint['resolution_notes'] ?? '')) ?>
-        </p>
+        <p><?= nl2br(e(
+                $selectedComplaint->getResolutionNotes() ?? ''
+            )) ?></p>
     <?php endif; ?>
-
-    <p>
-        <a href="?page=my-complaints&amp;customer_id=<?= e($selectedComplaint['customer_id']) ?>">
-            Back to My Complaints
-        </a>
-    </p>
-<?php else: ?>
-    <p>
-        <a href="?page=my-complaints">Back to My Complaints</a>
-    </p>
 <?php endif; ?>
+
+<p>
+    <a href="?page=my-complaints">Back to My Complaints</a>
+</p>

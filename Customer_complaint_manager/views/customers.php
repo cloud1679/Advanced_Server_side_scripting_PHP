@@ -1,9 +1,10 @@
 <?php
-/** @var bool $customerPageUnavailable */
-/** @var array<int, Customer> $customers */
-?>
-<?php if (!$customerPageUnavailable): ?>
 
+/** @var bool $customerPageUnavailable */
+/** @var Customer[] $customers */
+?>
+
+<?php if (!$customerPageUnavailable): ?>
     <?php if (($_GET['updated'] ?? '') === '1'): ?>
         <p role="status">Customer information saved.</p>
     <?php endif; ?>
@@ -31,8 +32,26 @@
                         <td><?= e($record->getPhone()) ?></td>
 
                         <td>
-                            <a href="?page=customer-edit&amp;id=<?= e($record->getCustomerId()) ?>">
+                            <a href="<?= e(
+                                            '?page=customer-edit&id='
+                                                . rawurlencode(
+                                                    (string) $record->getCustomerId()
+                                                )
+                                        ) ?>">
                                 Edit
+                            </a>
+
+                            |
+
+                            <a href="<?= e(
+                                            '?page=admin-reset-password'
+                                                . '&account_type=Customer'
+                                                . '&id='
+                                                . rawurlencode(
+                                                    (string) $record->getCustomerId()
+                                                )
+                                        ) ?>">
+                                Reset Password
                             </a>
                         </td>
                     </tr>
@@ -40,7 +59,6 @@
             </tbody>
         </table>
     <?php endif; ?>
-
 <?php endif; ?>
 
 <p>

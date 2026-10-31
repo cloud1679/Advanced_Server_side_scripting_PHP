@@ -1,31 +1,20 @@
 <?php
 
 /** @var array<string, string> $values */
-/** @var array<int, string> $customerOptions */
 /** @var array<int, string> $productOptions */
 /** @var array<int, string> $categoryOptions */
 /** @var bool $complaintChoicesAvailable */
 /** @var bool $complaintPageUnavailable */
-
 ?>
 
-<?php if ($complaintChoicesAvailable && !$complaintPageUnavailable): ?>
-    <form method="post">
+<?php if (
+    $complaintChoicesAvailable &&
+    !$complaintPageUnavailable
+): ?>
+    <form method="post" action="?page=new-complaint">
         <?php
-        selectField(
-            $values,
-            'customer_id',
-            'Test Customer',
-            $customerOptions
-        );
-        ?>
+        csrfField();
 
-        <p>
-            Select the customer submitting this complaint.
-            This temporary selection will be replaced by login.
-        </p>
-
-        <?php
         selectField(
             $values,
             'product_id',

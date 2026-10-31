@@ -10,6 +10,7 @@ class Employee
     private $phoneExtension = '';
     private $employeeLevel = 'Technician';
     private $passwordHash = '';
+    private $mustChangePassword = false;
 
     public function getEmployeeId()
     {
@@ -18,7 +19,9 @@ class Employee
 
     public function setEmployeeId($value)
     {
-        $this->employeeId = $value === null ? null : (int) $value;
+        $this->employeeId = $value === null
+            ? null
+            : (int) $value;
     }
 
     public function getUserId()
@@ -78,8 +81,14 @@ class Employee
 
     public function setEmployeeLevel($value)
     {
-        if (!in_array($value, ['Technician', 'Administrator'], true)) {
-            throw new InvalidArgumentException('Invalid employee level.');
+        if (!in_array(
+            $value,
+            ['Technician', 'Administrator'],
+            true
+        )) {
+            throw new InvalidArgumentException(
+                'Invalid employee level.'
+            );
         }
 
         $this->employeeLevel = $value;
@@ -95,11 +104,22 @@ class Employee
         $this->passwordHash = $value;
     }
 
+    public function getMustChangePassword()
+    {
+        return $this->mustChangePassword;
+    }
+
+    public function setMustChangePassword($value)
+    {
+        $this->mustChangePassword = (bool) $value;
+    }
+
     public function getFullName()
     {
         return $this->firstName . ' ' . $this->lastName;
     }
 
+    // Password information is excluded from ordinary employee forms.
     public function toFormArray()
     {
         return [

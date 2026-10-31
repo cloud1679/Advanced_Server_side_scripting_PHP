@@ -1,10 +1,14 @@
 <?php
+
 /** @var bool $employeePageUnavailable */
 /** @var bool $editingEmployee */
 /** @var array<string, string> $values */
 ?>
+
 <?php if (!$employeePageUnavailable): ?>
     <form method="post">
+        <?php csrfField(); ?>
+
         <h2>
             <?= $editingEmployee ? 'Update Employee' : 'Add Employee' ?>
         </h2>
@@ -24,9 +28,29 @@
         <p>Existing employee User IDs cannot be changed.</p>
 
         <?php
-        inputField($values, 'first_name', 'First Name', 'text', 50);
-        inputField($values, 'last_name', 'Last Name', 'text', 50);
-        inputField($values, 'email', 'Email Address', 'email', 150);
+        inputField(
+            $values,
+            'first_name',
+            'First Name',
+            'text',
+            50
+        );
+
+        inputField(
+            $values,
+            'last_name',
+            'Last Name',
+            'text',
+            50
+        );
+
+        inputField(
+            $values,
+            'email',
+            'Email Address',
+            'email',
+            150
+        );
 
         inputField(
             $values,
@@ -76,5 +100,7 @@
         <?php formActions('Save Employee', 'employees'); ?>
     </form>
 <?php else: ?>
-    <p><a href="?page=employees">Back to Employees</a></p>
+    <p>
+        <a href="?page=employees">Back to Employees</a>
+    </p>
 <?php endif; ?>

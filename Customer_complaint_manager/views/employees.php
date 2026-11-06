@@ -24,7 +24,7 @@
                     <th scope="col">User ID</th>
                     <th scope="col">Name</th>
                     <th scope="col">Email</th>
-                    <th scope="col">Extension</th>
+                    <th scope="col">Phone Number</th>
                     <th scope="col">Level</th>
                     <th scope="col">Action</th>
                 </tr>
@@ -36,7 +36,7 @@
                         <td><?= e($record->getUserId()) ?></td>
                         <td><?= e($record->getFullName()) ?></td>
                         <td><?= e($record->getEmail()) ?></td>
-                        <td><?= e($record->getPhoneExtension()) ?></td>
+                        <td><?= e($record->getPhoneNumber()) ?></td>
                         <td><?= e($record->getEmployeeLevel()) ?></td>
 
                         <td>

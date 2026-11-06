@@ -7,7 +7,7 @@ class Employee
     private $firstName = '';
     private $lastName = '';
     private $email = '';
-    private $phoneExtension = '';
+    private $phoneNumber = '';
     private $employeeLevel = 'Technician';
     private $passwordHash = '';
     private $mustChangePassword = false;
@@ -64,14 +64,14 @@ class Employee
         $this->email = trim($value);
     }
 
-    public function getPhoneExtension()
+    public function getPhoneNumber()
     {
-        return $this->phoneExtension;
+        return $this->phoneNumber;
     }
 
-    public function setPhoneExtension($value)
+    public function setPhoneNumber($value)
     {
-        $this->phoneExtension = trim($value ?? '');
+        $this->phoneNumber = trim($value ?? '');
     }
 
     public function getEmployeeLevel()
@@ -127,7 +127,7 @@ class Employee
             'first_name' => $this->firstName,
             'last_name' => $this->lastName,
             'email' => $this->email,
-            'phone_extension' => $this->phoneExtension,
+            'phone_number' => $this->phoneNumber,
             'employee_level' => $this->employeeLevel
         ];
     }

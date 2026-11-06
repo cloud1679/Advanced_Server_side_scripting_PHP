@@ -789,8 +789,8 @@ class PageController
                     $record->setLastName($values['last_name']);
                     $record->setEmail($values['email']);
 
-                    $record->setPhoneExtension(
-                        $values['phone_extension'] ?? ''
+                    $record->setPhoneNumber(
+                        $values['phone_number'] ?? ''
                     );
 
                     $record->setEmployeeLevel(

@@ -46,6 +46,7 @@ $backLinks = [
         content="width=device-width, initial-scale=1.0">
 
     <title><?= e($title) ?> | Customer Complaint Manager</title>
+    <link rel="stylesheet" href="<?= e(APP_URL . '/style.css') ?>">
 </head>
 
 <body>
@@ -61,7 +62,7 @@ $backLinks = [
         <?php endif; ?>
 
         <?php if ($errors): ?>
-            <div role="alert">
+            <div role="alert" class="error-box">
                 <p>
                     <strong>Please correct the following:</strong>
                 </p>

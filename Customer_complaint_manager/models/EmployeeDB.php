@@ -21,7 +21,7 @@ class EmployeeDB
         $employee->setFirstName($row['first_name']);
         $employee->setLastName($row['last_name']);
         $employee->setEmail($row['email']);
-        $employee->setPhoneExtension($row['phone_extension']);
+        $employee->setPhoneNumber($row['phone_number']);
         $employee->setEmployeeLevel($row['employee_level']);
         $employee->setPasswordHash($row['password_hash']);
 
@@ -153,7 +153,7 @@ class EmployeeDB
                 first_name,
                 last_name,
                 email,
-                phone_extension,
+                phone_number,
                 employee_level,
                 password_hash,
                 must_change_password
@@ -162,7 +162,7 @@ class EmployeeDB
                 :first_name,
                 :last_name,
                 :email,
-                :phone_extension,
+                :phone_number,
                 :employee_level,
                 :password_hash,
                 :must_change_password
@@ -192,7 +192,7 @@ class EmployeeDB
                 first_name = :first_name,
                 last_name = :last_name,
                 email = :email,
-                phone_extension = :phone_extension,
+                phone_number = :phone_number,
                 employee_level = :employee_level
              WHERE employee_id = :employee_id'
         );

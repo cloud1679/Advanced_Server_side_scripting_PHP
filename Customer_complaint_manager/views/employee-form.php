@@ -54,10 +54,10 @@
 
         inputField(
             $values,
-            'phone_extension',
-            'Phone Extension',
-            'text',
-            10,
+            'phone_number',
+            'Phone Number',
+            'tel',
+            20,
             false
         );
 

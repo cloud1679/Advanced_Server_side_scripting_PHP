@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS employees (
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
-    phone_extension VARCHAR(10),
+    phone_number VARCHAR(20),
     employee_level ENUM('Administrator', 'Technician') NOT NULL,
     password_hash VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB;

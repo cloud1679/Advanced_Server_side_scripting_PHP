@@ -23,6 +23,8 @@ XAMPP can provide the local web server, PHP, and database environment.
 
 The temporary-password migration adds `must_change_password` to customers and employees. Run it only once; repeating it produces duplicate-column errors. Back up an existing database before applying schema changes, and do not reimport the base seed data into an existing installation.
 
+For existing installations that still have employee phone extensions, run `database/employee-phone-number.sql` once to rename and expand the field. Existing values are preserved; replace old extensions with full phone numbers when editing employees. New installations already use the phone-number field.
+
 The supplied database script does not create an initial administrator account. Provision the initial administrator in the database with a PHP `password_hash()` value in `password_hash`, rather than a plaintext password. Keep real credentials out of GitHub.
 
 ## Running the Application
@@ -130,18 +132,7 @@ Administrators use **Change Password** for their own accounts. An administrator 
 
 The application uses HTTPS, sessions, role permissions, complaint ownership checks, and form security tokens (CSRF protection). Sessions expire after 30 minutes without activity. Repeated failed login attempts and failed administrator password-reset confirmations are temporarily limited.
 
-## Manual Testing
-
-- Register a customer and confirm login works with the saved email address.
-- Submit a complaint and verify that it appears in the customer's complaint list.
-- As an administrator, assign the complaint to a technician; verify that technician can view and update it.
-- Close a complaint with a resolution date and notes, then confirm the customer can see the resolution.
-- Reset a test customer's password as an administrator. Confirm the old password fails, the temporary password works, and the customer must change it before continuing.
-- Confirm the new password works and the temporary password no longer works after the change.
-- Create an employee and confirm a password change is required at first login.
-- Confirm customers cannot access another customer's complaints, technicians cannot update another technician's assignments, and neither role can access administrator actions.
-- Change a password and confirm another existing session is rejected on its next request.
-- As an administrator, run the database connection test.
+## Troubleshooting
 
 For troubleshooting, inspect the PHP and Apache error logs configured for your server. Their locations depend on your installation.
 

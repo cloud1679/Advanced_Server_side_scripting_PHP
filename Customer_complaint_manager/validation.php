@@ -350,19 +350,22 @@ function validateForm(
             $text('last_name', 'Last name', 50);
             $email();
 
-            $extension = $text(
-                'phone_extension',
-                'Phone extension',
-                10,
+            $employeePhone = $text(
+                'phone_number',
+                'Phone number',
+                20,
                 false
             );
 
             if (
-                $extension !== '' &&
-                !preg_match('/^\d+$/', $extension)
+                $employeePhone !== '' &&
+                !preg_match(
+                    '/^(?:\+?1[ .-]?)?(?:\(\d{3}\)|\d{3})[ .-]?\d{3}[ .-]?\d{4}$/',
+                    $employeePhone
+                )
             ) {
                 $errors[] =
-                    'Phone extension must contain only numbers.';
+                    'Enter a valid 10-digit US phone number.';
             }
 
             $choice(

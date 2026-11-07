@@ -1,5 +1,8 @@
 # Customer_complaint_manager
 
+## Updated
+Final GitHub UpDate 7 NOV 26
+
 ## Purpose
 
 Customer_complaint_manager is a PHP and MySQL application for submitting, tracking, assigning, and resolving customer complaints. It uses a Model-View-Controller (MVC) structure to separate database operations, request handling, and page display.
@@ -145,3 +148,4 @@ For troubleshooting, inspect the PHP and Apache error logs configured for your s
 - `validation.php` and `helpers.php`: Input validation and shared rendering helpers.
 - `database/`: Base schema, seed data, and schema migrations.
 - `test-database.php`: Database check restricted to authenticated administrators.
+
